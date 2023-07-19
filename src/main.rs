@@ -55,7 +55,7 @@ impl Display for Event {
                 )
             }
             EventType::MouseMove { x, y } => {
-                write!(f, "{},mm,{},{}", self.delay.as_millis(), x, y)
+                write!(f, "{},mm,{},{}", self.delay.as_millis(), x as i64, y as i64)
             }
             EventType::Wheel { delta_x, delta_y } => {
                 write!(f, "{},mw,{},{}", self.delay.as_millis(), delta_x, delta_y)
@@ -171,6 +171,19 @@ fn record() {
 }
 
 fn playback() {
+    let (tx, rx) = channel();
+    let _listener = thread::spawn(move || {
+        listen(move |event| {
+            if let EventType::KeyPress(key) = event.event_type {
+                if let rdev::Key::Space = key {
+                    tx.send(RawEvent::Terminate)
+                        .unwrap_or_else(|e| println!("Could not send event {:?}", e));
+                    return;
+                }
+            }
+        })
+    });
+
     let contents = std::fs::read_to_string(FILE).unwrap();
     let mut events = Vec::new();
     for line in contents.lines() {
@@ -235,6 +248,10 @@ fn playback() {
 
     let mut sim = enigo::Enigo::new();
     for event in events {
+        if let Ok(msg) = rx.try_recv() {
+            break;
+        }
+
         spin_sleep::sleep(event.delay);
         match event.event {
             EventType::KeyPress(k) => {
