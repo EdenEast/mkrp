@@ -14,7 +14,7 @@ use crate::mouse::MouseButton;
 mod keys;
 mod mouse;
 
-const FILE: &str = "result";
+const FILE: &str = "rec.mkrp";
 
 #[derive(Debug, Clone)]
 enum RawEvent {
@@ -71,7 +71,7 @@ fn record() {
     let _listener = thread::spawn(move || {
         listen(move |event| {
             match event.event_type {
-                rdev::EventType::KeyPress(rdev::Key::Space) => tx
+                rdev::EventType::KeyPress(rdev::Key::F9) => tx
                     .send(RawEvent::Terminate)
                     .unwrap_or_else(|e| println!("Could not send event {:?}", e)),
                 _ => tx
@@ -174,7 +174,7 @@ fn playback() {
     let _listener = thread::spawn(move || {
         listen(move |event| {
             if let EventType::KeyPress(key) = event.event_type {
-                if let rdev::Key::Space = key {
+                if let rdev::Key::F9 = key {
                     tx.send(RawEvent::Terminate)
                         .unwrap_or_else(|e| println!("Could not send event {:?}", e));
                     return;
