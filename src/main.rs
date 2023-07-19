@@ -1,14 +1,21 @@
-use rdev::{listen, Event as RdEvent, EventType, Key};
+#![allow(unused)]
+
+use enigo::{KeyboardControllable, MouseControllable};
+use rdev::{listen, Button, Event as RdEvent, EventType};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
 use std::sync::mpsc::channel;
-use std::thread;
 use std::time::{Duration, SystemTime};
-use str_ext::StrExt;
+use std::{env, thread};
 
-mod str_ext;
+use crate::keys::{Key, KeyState};
+use crate::mouse::MouseButton;
+mod keys;
+mod mouse;
+
+const FILE: &str = "result";
 
 #[derive(Debug, Clone)]
 enum RawEvent {
@@ -26,16 +33,26 @@ impl Display for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.event {
             EventType::KeyPress(key) => {
-                write!(f, "{},kp,{}", self.delay.as_millis(), key.ser_to_str())
+                write!(f, "{},kp,{}", self.delay.as_millis(), Key::from(key) as u8)
             }
             EventType::KeyRelease(key) => {
-                write!(f, "{},kr,{}", self.delay.as_millis(), key.ser_to_str())
+                write!(f, "{},kr,{}", self.delay.as_millis(), Key::from(key) as u8)
             }
             EventType::ButtonPress(button) => {
-                write!(f, "{},mp,{}", self.delay.as_millis(), button.ser_to_str())
+                write!(
+                    f,
+                    "{},mp,{}",
+                    self.delay.as_millis(),
+                    MouseButton::from(button) as u8
+                )
             }
             EventType::ButtonRelease(button) => {
-                write!(f, "{},mr,{}", self.delay.as_millis(), button.ser_to_str())
+                write!(
+                    f,
+                    "{},mr,{}",
+                    self.delay.as_millis(),
+                    MouseButton::from(button) as u8
+                )
             }
             EventType::MouseMove { x, y } => {
                 write!(f, "{},mm,{},{}", self.delay.as_millis(), x, y)
@@ -47,7 +64,7 @@ impl Display for Event {
     }
 }
 
-fn main() {
+fn record() {
     // spawn new thread because listen blocks
     let (tx, rx) = channel();
     let mut prev_system_time = SystemTime::now();
@@ -66,7 +83,7 @@ fn main() {
         .expect("Could not listen");
     });
 
-    let mut keystate: HashMap<Key, bool> = HashMap::with_capacity(110);
+    let mut keystate: HashMap<rdev::Key, bool> = HashMap::with_capacity(110);
 
     let mut events = Vec::new();
     for raw_event in rx.iter() {
@@ -145,10 +162,130 @@ fn main() {
         };
     }
 
-    let mut file = File::create("result.json").unwrap();
+    let mut file = File::create(FILE).unwrap();
     for event in events {
         writeln!(file, "{}", event).unwrap();
     }
 
     println!("bye!");
+}
+
+fn playback() {
+    let contents = std::fs::read_to_string(FILE).unwrap();
+    let mut events = Vec::new();
+    for line in contents.lines() {
+        let mut values = line.split(",");
+        let delay_value = values
+            .next()
+            .map(|s| u64::from_str_radix(s, 10).unwrap())
+            .unwrap();
+
+        let delay = Duration::from_millis(delay_value);
+        let event = match values.next().unwrap() {
+            "kp" => {
+                let key = Key::from(values.next().map(|s| s.parse::<u8>().unwrap()).unwrap());
+                Event {
+                    delay,
+                    event: EventType::KeyPress(key.into()),
+                }
+            }
+            "kr" => {
+                let key = Key::from(values.next().map(|s| s.parse::<u8>().unwrap()).unwrap());
+                Event {
+                    delay,
+                    event: EventType::KeyRelease(key.into()),
+                }
+            }
+            "mp" => {
+                let button =
+                    MouseButton::from(values.next().map(|s| s.parse::<u8>().unwrap()).unwrap());
+                Event {
+                    delay,
+                    event: EventType::ButtonPress(button.into()),
+                }
+            }
+            "mr" => {
+                let button =
+                    MouseButton::from(values.next().map(|s| s.parse::<u8>().unwrap()).unwrap());
+                Event {
+                    delay,
+                    event: EventType::ButtonRelease(button.into()),
+                }
+            }
+            "mm" => {
+                let x = values.next().map(|s| s.parse::<f64>().unwrap()).unwrap();
+                let y = values.next().map(|s| s.parse::<f64>().unwrap()).unwrap();
+                Event {
+                    delay,
+                    event: EventType::MouseMove { x, y },
+                }
+            }
+            "mw" => {
+                let delta_x = values.next().map(|s| s.parse::<i64>().unwrap()).unwrap();
+                let delta_y = values.next().map(|s| s.parse::<i64>().unwrap()).unwrap();
+                Event {
+                    delay,
+                    event: EventType::Wheel { delta_x, delta_y },
+                }
+            }
+            _ => todo!(),
+        };
+        events.push(event);
+    }
+
+    let mut sim = enigo::Enigo::new();
+    for event in events {
+        spin_sleep::sleep(event.delay);
+        match event.event {
+            EventType::KeyPress(k) => {
+                let key: Key = k.into();
+                sim.key_down(key.into());
+            }
+            EventType::KeyRelease(k) => {
+                let key: Key = k.into();
+                sim.key_up(key.into());
+            }
+            EventType::ButtonPress(b) => {
+                let button = match b {
+                    Button::Left => enigo::MouseButton::Left,
+                    Button::Right => enigo::MouseButton::Right,
+                    Button::Middle => enigo::MouseButton::Middle,
+                    _ => todo!(),
+                };
+                sim.mouse_down(button);
+            }
+            EventType::ButtonRelease(b) => {
+                let button = match b {
+                    Button::Left => enigo::MouseButton::Left,
+                    Button::Right => enigo::MouseButton::Right,
+                    Button::Middle => enigo::MouseButton::Middle,
+                    _ => todo!(),
+                };
+                sim.mouse_up(button);
+            }
+            EventType::MouseMove { x, y } => {
+                sim.mouse_move_to(x as i32, y as i32);
+            }
+            EventType::Wheel { delta_x, delta_y } => {
+                if delta_x != 0 {
+                    sim.mouse_scroll_x(delta_x as i32);
+                }
+
+                if delta_y != 0 {
+                    sim.mouse_scroll_y(delta_y as i32);
+                }
+            }
+        }
+    }
+}
+
+fn main() {
+    let args = env::args();
+    let command = args.skip(1).next().unwrap_or("rec".to_string());
+
+    match command.as_str() {
+        "play" => playback(),
+        "rec" => record(),
+        _ => println!("unknown command {}", command),
+    };
 }

@@ -4,4 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rdev = { version = "0.5.3", features = ["serialize"] }
+enigo = { version = "0.1.2", default-features = false }
+rdev = { version = "0.5.3", default-features = false }
+spin_sleep = "1.1.1"
