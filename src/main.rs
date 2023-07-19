@@ -1,7 +1,6 @@
 #![allow(unused)]
 
-use enigo::{KeyboardControllable, MouseControllable};
-use rdev::{listen, Button, Event as RdEvent, EventType};
+use rdev::{listen, simulate, Button, Event as RdEvent, EventType};
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::File;
@@ -133,7 +132,7 @@ fn record() {
                             .time
                             .duration_since(prev_system_time)
                             .expect("failed to get duration since last event");
-                        if duration.as_millis() >= 10 {
+                        if duration.as_millis() >= 1 {
                             events.push(Event {
                                 delay: duration,
                                 event: event.event_type,
@@ -246,53 +245,13 @@ fn playback() {
         events.push(event);
     }
 
-    let mut sim = enigo::Enigo::new();
     for event in events {
         if let Ok(msg) = rx.try_recv() {
             break;
         }
 
         spin_sleep::sleep(event.delay);
-        match event.event {
-            EventType::KeyPress(k) => {
-                let key: Key = k.into();
-                sim.key_down(key.into());
-            }
-            EventType::KeyRelease(k) => {
-                let key: Key = k.into();
-                sim.key_up(key.into());
-            }
-            EventType::ButtonPress(b) => {
-                let button = match b {
-                    Button::Left => enigo::MouseButton::Left,
-                    Button::Right => enigo::MouseButton::Right,
-                    Button::Middle => enigo::MouseButton::Middle,
-                    _ => todo!(),
-                };
-                sim.mouse_down(button);
-            }
-            EventType::ButtonRelease(b) => {
-                let button = match b {
-                    Button::Left => enigo::MouseButton::Left,
-                    Button::Right => enigo::MouseButton::Right,
-                    Button::Middle => enigo::MouseButton::Middle,
-                    _ => todo!(),
-                };
-                sim.mouse_up(button);
-            }
-            EventType::MouseMove { x, y } => {
-                sim.mouse_move_to(x as i32, y as i32);
-            }
-            EventType::Wheel { delta_x, delta_y } => {
-                if delta_x != 0 {
-                    sim.mouse_scroll_x(delta_x as i32);
-                }
-
-                if delta_y != 0 {
-                    sim.mouse_scroll_y(delta_y as i32);
-                }
-            }
-        }
+        simulate(&event.event).expect(&format!("failed to simulate {:#?}", event));
     }
 }
 

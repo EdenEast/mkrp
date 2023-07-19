@@ -24,28 +24,6 @@ impl From<MouseButton> for u8 {
     }
 }
 
-impl From<enigo::MouseButton> for MouseButton {
-    fn from(value: enigo::MouseButton) -> Self {
-        match value {
-            enigo::MouseButton::Left => MouseButton::Left,
-            enigo::MouseButton::Middle => MouseButton::Middle,
-            enigo::MouseButton::Right => MouseButton::Right,
-            _ => MouseButton::Unknown,
-        }
-    }
-}
-
-impl From<MouseButton> for enigo::MouseButton {
-    fn from(value: MouseButton) -> Self {
-        match value {
-            MouseButton::Left => enigo::MouseButton::Left,
-            MouseButton::Middle => enigo::MouseButton::Middle,
-            MouseButton::Right => enigo::MouseButton::Right,
-            _ => todo!(),
-        }
-    }
-}
-
 impl From<rdev::Button> for MouseButton {
     fn from(value: rdev::Button) -> Self {
         match value {
