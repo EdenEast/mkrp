@@ -11,6 +11,7 @@ use std::{env, thread};
 
 use crate::keys::{Key, KeyState};
 use crate::mouse::MouseButton;
+mod cli;
 mod keys;
 mod mouse;
 
