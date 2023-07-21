@@ -58,7 +58,7 @@ pub struct Record {
 pub struct Play {
     /// Number of iterations to be executed
     #[arg(short, long)]
-    pub iterations: Option<u32>,
+    pub iterations: Option<u64>,
 
     /// Key to be used to stop playback
     ///

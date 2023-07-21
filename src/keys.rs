@@ -124,6 +124,7 @@ pub enum Key {
 
     Insert,
     PrintScreen,
+    Capslock,
 
     Unknown,
 }
@@ -216,6 +217,7 @@ static STR_TO_KEYS: phf::Map<&'static str, Key> = phf_map! {
     "pagedown" => Key::Pagedown ,
     "insert" => Key::Insert ,
     "printscreen" => Key::PrintScreen ,
+    "capslock" => Key::Capslock,
     "unknown" => Key::Unknown ,
 };
 
@@ -309,6 +311,7 @@ impl Key {
             Key::Pagedown => "pagedown",
             Key::Insert => "insert",
             Key::PrintScreen => "printscreen",
+            Key::Capslock => "capslock",
             Key::Unknown => "unknown",
         }
     }
@@ -423,6 +426,7 @@ impl From<Key> for rdev::Key {
             Key::RSuper => rdev::Key::MetaRight,
             Key::Pageup => rdev::Key::PageUp,
             Key::Pagedown => rdev::Key::PageDown,
+            Key::Capslock => rdev::Key::CapsLock,
         }
     }
 }
@@ -433,7 +437,7 @@ impl From<rdev::Key> for Key {
             rdev::Key::Alt => Key::LAlt,
             rdev::Key::AltGr => Key::RAlt,
             rdev::Key::Backspace => Key::Backspace,
-            rdev::Key::CapsLock => todo!(),
+            rdev::Key::CapsLock => Key::Capslock,
             rdev::Key::ControlLeft => Key::LCtrl,
             rdev::Key::ControlRight => Key::RCtrl,
             rdev::Key::Delete => Key::Delete,
