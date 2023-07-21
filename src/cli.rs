@@ -1,5 +1,11 @@
 use std::path::PathBuf;
 
+use clap::{crate_description, crate_version, Args, Parser, Subcommand};
+
+pub trait Run {
+    fn run(self) -> eyre::Result<()>;
+}
+
 #[derive(Debug, Parser)]
 #[command(
     name = "mkrp",
@@ -34,10 +40,39 @@ pub struct Record {
     ///
     /// Example:
     ///     Stop the recording with the key combo `Ctrl` + `F9` would be `ctrl,f9`.
-    #[arg(short, long, default_value_t = None)]
+    #[arg(short, long)]
     pub stop_key: Option<String>,
 
     /// Output recorded events into path.
+    #[arg(value_name = "PATH")]
+    pub output: PathBuf,
+}
+
+/// Play recorded file
+#[derive(Debug, Args)]
+#[command(
+    visible_alias("p"),
+    disable_colored_help(true),
+    disable_version_flag(true)
+)]
+pub struct Play {
+    /// Number of iterations to be executed
+    #[arg(short, long)]
+    pub iterations: Option<u32>,
+
+    /// Key to be used to stop playback
+    ///
+    /// The stop key can be any combination of keys that have to be either pressed or held down at
+    /// the same time. The key combination is a comma seperated list of keys.
+    ///
+    /// If no value is passed this is defaulted to `Escape` as the stop key.
+    ///
+    /// Example:
+    ///     Stop the playback with the key combo `Ctrl` + `F9` would be `ctrl,f9`.
+    #[arg(short, long)]
+    pub stop_key: Option<String>,
+
+    /// Input file to be played
     #[arg(value_name = "PATH")]
     pub output: PathBuf,
 }
