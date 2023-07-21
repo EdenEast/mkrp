@@ -63,14 +63,17 @@ pub struct Play {
     /// Key to be used to stop playback
     ///
     /// The stop key can be any combination of keys that have to be either pressed or held down at
-    /// the same time. The key combination is a comma seperated list of keys.
-    ///
-    /// If no value is passed this is defaulted to `Escape` as the stop key.
+    /// the same time. The key combination is a comma seperated list of keys.  If no value is
+    /// passed this is defaulted to `Escape` as the stop key.
     ///
     /// Example:
     ///     Stop the playback with the key combo `Ctrl` + `F9` would be `ctrl,f9`.
     #[arg(short, long)]
     pub stop_key: Option<String>,
+
+    /// Delay between two iterations
+    #[arg(short, long)]
+    pub delay: Option<u64>,
 
     /// Input file to be played
     #[arg(value_name = "PATH")]

@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs::File;
 use std::io::Write;
+use std::str::FromStr;
 use std::sync::mpsc::channel;
 use std::time::{Duration, SystemTime};
 use std::{env, thread};

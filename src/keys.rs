@@ -1,9 +1,18 @@
-use std::{str::FromStr, string::ParseError};
+use phf::phf_map;
+use std::{error::Error, str::FromStr, string::ParseError};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct KeyState(u128);
 
 impl KeyState {
+    pub fn with_pressed(keys: &[Key]) -> Self {
+        let mut state = Self::default();
+        for k in keys {
+            state.set_pressed(*k);
+        }
+        state
+    }
+
     pub fn is_pressed(&self, key: Key) -> bool {
         (self.0 >> key as u8) as u8 & 1u8 == 1
     }
@@ -14,6 +23,10 @@ impl KeyState {
 
     pub fn set_released(&mut self, key: Key) {
         self.0 &= !(1 << (key as u8));
+    }
+
+    pub fn is_state_held(&self, state: KeyState) -> bool {
+        self.0 & state.0 == state.0
     }
 }
 
@@ -47,6 +60,7 @@ pub enum Key {
     Y,
     Z,
 
+    Num0,
     Num1,
     Num2,
     Num3,
@@ -56,7 +70,6 @@ pub enum Key {
     Num7,
     Num8,
     Num9,
-    Num0,
 
     F1,
     F2,
@@ -113,6 +126,192 @@ pub enum Key {
     PrintScreen,
 
     Unknown,
+}
+
+static STR_TO_KEYS: phf::Map<&'static str, Key> = phf_map! {
+    "a" => Key::A ,
+    "b" => Key::B ,
+    "c" => Key::C ,
+    "d" => Key::D ,
+    "e" => Key::E ,
+    "f" => Key::F ,
+    "g" => Key::G ,
+    "h" => Key::H ,
+    "i" => Key::I ,
+    "j" => Key::J ,
+    "k" => Key::K ,
+    "l" => Key::L ,
+    "m" => Key::M ,
+    "n" => Key::N ,
+    "o" => Key::O ,
+    "p" => Key::P ,
+    "q" => Key::Q ,
+    "r" => Key::R ,
+    "s" => Key::S ,
+    "t" => Key::T ,
+    "u" => Key::U ,
+    "v" => Key::V ,
+    "w" => Key::W ,
+    "x" => Key::X ,
+    "y" => Key::Y ,
+    "z" => Key::Z ,
+    "0" => Key::Num0 ,
+    "1" => Key::Num1 ,
+    "2" => Key::Num2 ,
+    "3" => Key::Num3 ,
+    "4" => Key::Num4 ,
+    "5" => Key::Num5 ,
+    "6" => Key::Num6 ,
+    "7" => Key::Num7 ,
+    "8" => Key::Num8 ,
+    "9" => Key::Num9 ,
+    "f1" => Key::F1 ,
+    "f2" => Key::F2 ,
+    "f3" => Key::F3 ,
+    "f4" => Key::F4 ,
+    "f5" => Key::F5 ,
+    "f6" => Key::F6 ,
+    "f7" => Key::F7 ,
+    "f8" => Key::F8 ,
+    "f9" => Key::F9 ,
+    "f10" => Key::F10 ,
+    "f11" => Key::F11 ,
+    "f12" => Key::F12 ,
+    "semicolon" => Key::SemiColon ,
+    "comma" => Key::Comma ,
+    "dot" => Key::Dot ,
+    "slash" => Key::Slash ,
+    "backslash" => Key::Backslash ,
+    "lbracket" => Key::LBracket ,
+    "rbracket" => Key::RBracket ,
+    "quote" => Key::Quote ,
+    "backquote" => Key::Backquote ,
+    "minus" => Key::Minus ,
+    "equal" => Key::Equal ,
+    "ctrl" => Key::LCtrl ,
+    "lctrl" => Key::LCtrl ,
+    "rctrl" => Key::RCtrl ,
+    "shift" => Key::LShift ,
+    "lshift" => Key::LShift ,
+    "rshift" => Key::RShift ,
+    "alt" => Key::LAlt ,
+    "lalt" => Key::LAlt ,
+    "ralt" => Key::RAlt ,
+    "super" => Key::LSuper ,
+    "lsuper" => Key::LSuper ,
+    "rsuper" => Key::RSuper ,
+    "backspace" => Key::Backspace ,
+    "delete" => Key::Delete ,
+    "space" => Key::Space ,
+    "return" => Key::Return ,
+    "escape" => Key::Escape ,
+    "tab" => Key::Tab ,
+    "up" => Key::Up ,
+    "down" => Key::Down ,
+    "left" => Key::Left ,
+    "right" => Key::Right ,
+    "home" => Key::Home ,
+    "end" => Key::End ,
+    "pageup" => Key::Pageup ,
+    "pagedown" => Key::Pagedown ,
+    "insert" => Key::Insert ,
+    "printscreen" => Key::PrintScreen ,
+    "unknown" => Key::Unknown ,
+};
+
+impl Key {
+    pub fn from_str(s: &str) -> Option<Key> {
+        STR_TO_KEYS.get(s).cloned()
+    }
+
+    pub fn to_str(&self) -> &str {
+        match self {
+            Key::A => "a",
+            Key::B => "b",
+            Key::C => "c",
+            Key::D => "d",
+            Key::E => "e",
+            Key::F => "f",
+            Key::G => "g",
+            Key::H => "h",
+            Key::I => "i",
+            Key::J => "j",
+            Key::K => "k",
+            Key::L => "l",
+            Key::M => "m",
+            Key::N => "n",
+            Key::O => "o",
+            Key::P => "p",
+            Key::Q => "q",
+            Key::R => "r",
+            Key::S => "s",
+            Key::T => "t",
+            Key::U => "u",
+            Key::V => "v",
+            Key::W => "w",
+            Key::X => "x",
+            Key::Y => "y",
+            Key::Z => "z",
+            Key::Num0 => "0",
+            Key::Num1 => "1",
+            Key::Num2 => "2",
+            Key::Num3 => "3",
+            Key::Num4 => "4",
+            Key::Num5 => "5",
+            Key::Num6 => "6",
+            Key::Num7 => "7",
+            Key::Num8 => "8",
+            Key::Num9 => "9",
+            Key::F1 => "f1",
+            Key::F2 => "f2",
+            Key::F3 => "f3",
+            Key::F4 => "f4",
+            Key::F5 => "f5",
+            Key::F6 => "f6",
+            Key::F7 => "f7",
+            Key::F8 => "f8",
+            Key::F9 => "f9",
+            Key::F10 => "f10",
+            Key::F11 => "f11",
+            Key::F12 => "f12",
+            Key::SemiColon => "semicolon",
+            Key::Comma => "comma",
+            Key::Dot => "dot",
+            Key::Slash => "slash",
+            Key::Backslash => "backslash",
+            Key::LBracket => "lbracket",
+            Key::RBracket => "rbracket",
+            Key::Quote => "quote",
+            Key::Backquote => "backquote",
+            Key::Minus => "minus",
+            Key::Equal => "equal",
+            Key::LCtrl => "lctrl",
+            Key::RCtrl => "rctrl",
+            Key::LShift => "lshift",
+            Key::RShift => "rshift",
+            Key::LAlt => "lalt",
+            Key::RAlt => "ralt",
+            Key::LSuper => "lsuper",
+            Key::RSuper => "rsuper",
+            Key::Backspace => "backspace",
+            Key::Delete => "delete",
+            Key::Space => "space",
+            Key::Return => "return",
+            Key::Escape => "escape",
+            Key::Tab => "tab",
+            Key::Up => "up",
+            Key::Down => "down",
+            Key::Left => "left",
+            Key::Right => "right",
+            Key::Home => "home",
+            Key::End => "end",
+            Key::Pageup => "pageup",
+            Key::Pagedown => "pagedown",
+            Key::Insert => "insert",
+            Key::PrintScreen => "printscreen",
+            Key::Unknown => "unknown",
+        }
+    }
 }
 
 impl From<u8> for Key {
@@ -172,6 +371,7 @@ impl From<Key> for rdev::Key {
             Key::Up => rdev::Key::UpArrow,
             Key::PrintScreen => rdev::Key::PrintScreen,
             Key::Backquote => rdev::Key::BackQuote,
+            Key::Num0 => rdev::Key::Num0,
             Key::Num1 => rdev::Key::Num1,
             Key::Num2 => rdev::Key::Num2,
             Key::Num3 => rdev::Key::Num3,
@@ -181,7 +381,6 @@ impl From<Key> for rdev::Key {
             Key::Num7 => rdev::Key::Num7,
             Key::Num8 => rdev::Key::Num8,
             Key::Num9 => rdev::Key::Num9,
-            Key::Num0 => rdev::Key::Num0,
             Key::Minus => rdev::Key::Minus,
             Key::Equal => rdev::Key::Equal,
             Key::Q => rdev::Key::KeyQ,
@@ -271,6 +470,7 @@ impl From<rdev::Key> for Key {
             rdev::Key::Pause => todo!(),
             rdev::Key::NumLock => todo!(),
             rdev::Key::BackQuote => Key::Backquote,
+            rdev::Key::Num0 => Key::Num0,
             rdev::Key::Num1 => Key::Num1,
             rdev::Key::Num2 => Key::Num2,
             rdev::Key::Num3 => Key::Num3,
@@ -280,7 +480,6 @@ impl From<rdev::Key> for Key {
             rdev::Key::Num7 => Key::Num7,
             rdev::Key::Num8 => Key::Num8,
             rdev::Key::Num9 => Key::Num9,
-            rdev::Key::Num0 => Key::Num0,
             rdev::Key::Minus => Key::Minus,
             rdev::Key::Equal => Key::Equal,
             rdev::Key::KeyQ => Key::Q,
@@ -350,5 +549,25 @@ mod tests {
         assert_eq!(Key::from(0u8), Key::Unknown);
         assert_eq!(Key::from(10u8), Key::J);
         assert_eq!(Key::from(200u8), Key::Unknown);
+    }
+
+    #[test]
+    fn convert_to_and_from_str() {
+        let last_key_value = Key::Unknown as u8;
+        for i in 1..=last_key_value {
+            let key = Key::from(i);
+
+            if i < last_key_value {
+                assert_ne!(key, Key::Unknown);
+            }
+
+            assert_eq!(Key::from_str(key.to_str()), Some(key));
+        }
+
+        // Checking the generic modifier key matches to the left modifier
+        assert_eq!(Key::from_str("ctrl"), Some(Key::LCtrl));
+        assert_eq!(Key::from_str("shift"), Some(Key::LShift));
+        assert_eq!(Key::from_str("alt"), Some(Key::LAlt));
+        assert_eq!(Key::from_str("super"), Some(Key::LSuper));
     }
 }
