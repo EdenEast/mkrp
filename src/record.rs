@@ -116,6 +116,7 @@ impl Run for Record {
         for event in events {
             writeln!(file, "{}", event).unwrap();
         }
+
         println!("bye!");
 
         Ok(())

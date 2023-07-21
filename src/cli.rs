@@ -17,10 +17,21 @@ pub struct Cli {
     pub command: Cmd,
 }
 
+impl Run for Cli {
+    fn run(self) -> eyre::Result<()> {
+        match self.command {
+            Cmd::Rec(c) => c.run(),
+            Cmd::Play(c) => c.run(),
+            Cmd::Interactive(c) => c.run(),
+        }
+    }
+}
+
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
     Rec(Record),
     Play(Play),
+    Interactive(Interactive),
 }
 
 /// Record mouse and keyboard events and save them into a file
@@ -78,4 +89,33 @@ pub struct Play {
     /// Input file to be played
     #[arg(value_name = "PATH")]
     pub output: PathBuf,
+}
+
+/// Interactive mode
+#[derive(Debug, Args)]
+#[command(
+    visible_alias("i"),
+    disable_colored_help(true),
+    disable_version_flag(true)
+)]
+pub struct Interactive {
+    /// Key that will terminate interactive mode
+    #[arg(short, long)]
+    pub terminate_key: Option<String>,
+
+    /// Key that will stop either recording or replaying
+    #[arg(short, long)]
+    pub stop_key: Option<String>,
+
+    /// Key that will pause recording or replaying actions
+    #[arg(short, long)]
+    pub pause_key: Option<String>,
+
+    /// Key to start recording
+    #[arg(short, long)]
+    pub rec_key: Option<String>,
+
+    /// Key to start replaying
+    #[arg(short = 'y', long)]
+    pub play_key: Option<String>,
 }

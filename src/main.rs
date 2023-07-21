@@ -17,6 +17,7 @@ use crate::mouse::MouseButton;
 
 mod cli;
 mod event;
+mod interactive;
 mod keys;
 mod mouse;
 mod play;
@@ -25,10 +26,6 @@ mod session;
 
 const FILE: &str = "rec.mkrp";
 
-fn main() {
-    let command = cli::Cli::parse();
-    match command.command {
-        cli::Cmd::Rec(c) => c.run().unwrap(),
-        cli::Cmd::Play(c) => c.run().unwrap(),
-    }
+fn main() -> eyre::Result<()> {
+    cli::Cli::parse().run()
 }
