@@ -361,7 +361,7 @@ impl From<Key> for rdev::Key {
             Key::Home => rdev::Key::Home,
             Key::Left => rdev::Key::LeftArrow,
             Key::Down => rdev::Key::PageDown,
-            Key::Up => rdev::Key::PageUp,
+            Key::Up => rdev::Key::UpArrow,
             Key::Return => rdev::Key::Return,
             Key::Right => rdev::Key::RightArrow,
             Key::LShift => rdev::Key::ShiftLeft,
