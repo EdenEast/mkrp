@@ -1,5 +1,11 @@
-use std::{sync::mpsc::channel, thread, time::Duration};
+use std::{
+    sync::mpsc::channel,
+    thread,
+    time::{Duration, Instant},
+};
 
+use crossbeam_channel::{bounded, tick, unbounded, Receiver};
+// use indicatif::MultiProgress;
 use rdev::{listen, simulate, EventType};
 
 use crate::{
@@ -29,14 +35,18 @@ impl Run for Play {
         let delay = self.delay.map(|s| Duration::from_millis(s));
         let total_iterations = self.iterations.unwrap_or(1);
 
-        let (tx, rx) = channel();
-        let _listener = thread::spawn(move || {
+        let (tt, rt) = unbounded();
+        // let (tx, rx) = unbounded();
+
+        let tt_input = tt.clone();
+        let listener = thread::spawn(move || {
+            let tt = tt_input;
             let mut keystate = KeyState::default();
             listen(move |event| match event.event_type {
                 EventType::KeyPress(k) => {
                     keystate.set_pressed(k.into());
                     if keystate.is_state_held(stop_state) {
-                        tx.send(true)
+                        tt.send(true)
                             .unwrap_or_else(|_| println!("Could not send terminate event"));
                     }
                 }
@@ -48,25 +58,53 @@ impl Run for Play {
             .expect("Could not listen");
         });
 
-        let mut has_terminated = false;
-        for i in 0..total_iterations {
-            for event in &session.events {
-                if let Ok(msg) = rx.try_recv() {
-                    has_terminated = true;
-                    break;
+        let (tt_exec, rt_exec) = (tt.clone(), rt.clone());
+        let executor = thread::spawn(move || {
+            let (tt, rt) = (tt_exec, rt_exec);
+            println!("executor started");
+            for i in 0..total_iterations {
+                println!("Iterations {}", i);
+                for event in &session.events {
+                    if let Ok(msg) = rt.try_recv() {
+                        println!("term msg recv in executor thread");
+                        tt.send(true)
+                            .unwrap_or_else(|_| println!("Could not send terminate event"));
+                        return;
+                    }
+                    spin_sleep::sleep(event.delay);
+                    simulate(&event.event).expect(&format!("failed to simulate {:#?}", event));
                 }
-                spin_sleep::sleep(event.delay);
-                simulate(&event.event).expect(&format!("failed to simulate {:#?}", event));
             }
 
-            if has_terminated {
-                break;
-            }
+            tt.send(true)
+                .expect("failed to send terminate signal from exec thread");
+            println!("executor thread finished");
+        });
 
-            if let Some(delay) = delay {
-                spin_sleep::sleep(delay);
-            }
-        }
+        // let (tt_ui, rt_ui) = (tt.clone(), rt.clone());
+        // let ui = thread::spawn(move || {
+        //     let (tt, rt) = (tt_ui, rt_ui);
+        //     println!("ui thread started");
+        //
+        //     let ticker: Receiver<Instant> = tick(std::time::Duration::from_millis(500));
+        //
+        //     loop {
+        //         crossbeam_channel::select! {
+        //             recv(rt) -> _ => {
+        //                 println!("term msg recv in ui thread");
+        //                 tt.send(true)
+        //                     .unwrap_or_else(|_| println!("Could not send terminate event"));
+        //                 return;
+        //             },
+        //             recv(ticker) -> _ => {
+        //
+        //             }
+        //         };
+        //     }
+        // });
+        // ui.join();
+
+        executor.join();
 
         Ok(())
     }
