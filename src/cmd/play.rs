@@ -5,12 +5,10 @@ use std::{
 };
 
 use crossbeam_channel::{bounded, tick, unbounded, Receiver};
-// use indicatif::MultiProgress;
 use rdev::{listen, simulate, EventType};
 
 use crate::{
     cli::{Play, Run},
-    event::RawEvent,
     keys::{Key, KeyState},
     session::Session,
 };

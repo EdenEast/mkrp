@@ -4,7 +4,7 @@ use rdev::listen;
 
 use crate::{
     cli::{Record, Run},
-    event::{Event, RawEvent},
+    event::Event,
     keys::{Key, KeyState},
 };
 
