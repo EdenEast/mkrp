@@ -2,10 +2,6 @@ use std::path::PathBuf;
 
 use clap::{crate_description, crate_version, Args, Parser, Subcommand};
 
-pub trait Run {
-    fn run(self) -> eyre::Result<()>;
-}
-
 #[derive(Debug, Parser)]
 #[command(
     name = "mkrp",

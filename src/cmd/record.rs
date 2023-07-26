@@ -1,15 +1,19 @@
 use std::{fs::File, io::Write, str::FromStr, sync::mpsc::channel, thread, time::SystemTime};
 
+use async_trait::async_trait;
 use rdev::listen;
 
 use crate::{
-    cli::{Record, Run},
-    event::{Event, RawEvent},
+    cli::Record,
+    event::Event,
     keys::{Key, KeyState},
 };
 
+use super::Run;
+
+#[async_trait]
 impl Run for Record {
-    fn run(self) -> eyre::Result<()> {
+    async fn run(self) -> eyre::Result<()> {
         let stop_state = match self.stop_key {
             Some(s) => {
                 let mut state = KeyState::default();
