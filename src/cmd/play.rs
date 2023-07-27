@@ -156,10 +156,10 @@ impl Run for Play {
                 spb.inc(1);
 
                 let cur_total_duration = now.saturating_duration_since(initial_start);
-                let cur_total_eta = total_duration - cur_total_duration;
+                let cur_total_eta = total_duration.saturating_sub(cur_total_duration);
 
                 let cur_session_duration = now.saturating_duration_since(session_start);
-                let cur_session_eta = session_duration - cur_session_duration;
+                let cur_session_eta = session_duration.saturating_sub(cur_session_duration);
 
                 tpb.set_message(format!(
                     "({:>5}/{:>5}) [{} / {}] ({})",
