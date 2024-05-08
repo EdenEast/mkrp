@@ -29,7 +29,7 @@ impl Run for Play {
         let stop_state = match self.stop_key {
             Some(s) => {
                 let mut state = KeyState::default();
-                for item in s.split(",") {
+                for item in s.split(',') {
                     let key = Key::from_str(item)
                         .ok_or(eyre::eyre!("Unknown key '{}' for stop key", item))?;
                     state.set_pressed(key);
@@ -42,7 +42,7 @@ impl Run for Play {
         let total_iterations = self.iterations.unwrap_or(1);
         let delay = self
             .delay
-            .map(|s| Duration::from_millis(s))
+            .map(Duration::from_millis)
             .unwrap_or(Duration::ZERO);
         let total_session = session.events.len();
 
@@ -82,7 +82,8 @@ impl Run for Play {
             for current_iteration in 0..total_iterations {
                 for (i, event) in session.events.iter().enumerate() {
                     spin_sleep::sleep(event.delay);
-                    simulate(&event.event).expect(&format!("failed to simulate {:#?}", event));
+                    simulate(&event.event)
+                        .unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
                     tx.send(UiEvent::Event(i as u32 + 1))
                         .expect("failed to send event iteration to main ui thread");
                 }
@@ -131,7 +132,7 @@ impl Run for Play {
         let mut current_event = 1;
 
         loop {
-            if let Ok(_) = rt.try_recv() {
+            if rt.try_recv().is_ok() {
                 break;
             }
 

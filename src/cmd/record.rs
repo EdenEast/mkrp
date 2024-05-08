@@ -13,7 +13,7 @@ impl Run for Record {
         let stop_state = match self.stop_key {
             Some(s) => {
                 let mut state = KeyState::default();
-                for item in s.split(",") {
+                for item in s.split(',') {
                     let key = Key::from_str(item)
                         .ok_or(eyre::eyre!("Unknown key '{}' for stop key", item))?;
                     state.set_pressed(key);

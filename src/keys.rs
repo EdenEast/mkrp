@@ -226,7 +226,7 @@ impl Key {
         STR_TO_KEYS.get(s).cloned()
     }
 
-    pub fn to_str(&self) -> &str {
+    pub fn to_str(self) -> &'static str {
         match self {
             Key::A => "a",
             Key::B => "b",

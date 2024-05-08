@@ -19,11 +19,8 @@ impl Session {
         let mut total_time = Duration::ZERO;
         let mut events = Vec::new();
         for line in contents.lines() {
-            let mut values = line.split(",");
-            let delay_value = values
-                .next()
-                .map(|s| u64::from_str_radix(s, 10).unwrap())
-                .unwrap();
+            let mut values = line.split(',');
+            let delay_value = values.next().map(|s| s.parse().unwrap()).unwrap();
 
             let delay = Duration::from_millis(delay_value);
             let event = match values.next().unwrap() {
