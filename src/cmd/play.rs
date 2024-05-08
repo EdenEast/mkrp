@@ -44,6 +44,7 @@ impl Run for Play {
             .delay
             .map(Duration::from_millis)
             .unwrap_or(Duration::ZERO);
+        let has_iteration_delay = delay.is_zero();
         let total_session = session.events.len();
 
         let total_duration =
@@ -78,9 +79,14 @@ impl Run for Play {
             .expect("Could not listen");
         });
 
+        let executor_rt = rt.clone();
         let executor = thread::spawn(move || {
-            for current_iteration in 0..total_iterations {
+            let rt = executor_rt;
+            'outer: for current_iteration in 0..total_iterations {
                 for (i, event) in session.events.iter().enumerate() {
+                    if rt.try_recv().is_ok() {
+                        break 'outer;
+                    }
                     spin_sleep::sleep(event.delay);
                     simulate(&event.event)
                         .unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
@@ -88,7 +94,7 @@ impl Run for Play {
                         .expect("failed to send event iteration to main ui thread");
                 }
 
-                if current_iteration < total_iterations - 1 {
+                if current_iteration < total_iterations - 1 && has_iteration_delay {
                     spin_sleep::sleep(delay);
                 }
 
@@ -130,6 +136,9 @@ impl Run for Play {
         let total_formatted_duration = FormattedDuration(total_duration);
         let mut current_total = 1;
         let mut current_event = 1;
+
+        // register ctrl-c handler
+        ctrlc::set_handler(move || tt.send(true).expect("Failed to send terminate signal"));
 
         loop {
             if rt.try_recv().is_ok() {
