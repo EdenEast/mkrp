@@ -1,0 +1,64 @@
+name: Release Latest
+
+permissions:
+  contents: write
+
+on:
+  workflow_run:
+    workflows: [Check]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  tag:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    # needs: [fmt, clippy, build]
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup | Download artifacts
+        uses: actions/github-script@v6
+        with:
+          script: |
+            let fs = require('fs')
+            let path = require('path')
+            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id,
+            });
+            for (const artifact of allArtifacts.data.artifacts) {
+              let download = await github.rest.actions.downloadArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id,
+                archive_format: 'zip',
+              });
+              let filepath = path.join('${{github.workspace}}', `${artifact.name}.zip`)
+              fs.writeFileSync(filepath, Buffer.from(download.data));
+              console.log(`Downloaded ${filepath}`)
+            }
+
+      - name: Build | Checksum
+        run: |
+          for file in mkrp-*; do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+
+      - name: Build | Update latest tag
+        run: |
+          git config user.name "GitHub Action Bot"
+          git config user.email "<>"
+          git tag -fa latest -m "Latest Continuous Release" ${GITHUB_SHA}
+          git push --force origin latest
+
+      - name: Post | Update release artifacts
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Mkrp Latest"
+          prerelase: true
+          tag_name: latest
+          target_commitish: ${{ github.sha }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: mkrp-*
+
