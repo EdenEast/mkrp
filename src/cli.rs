@@ -19,7 +19,7 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Cmd {
-    Rec(Record),
+    Record(Record),
     Play(Play),
 }
 
@@ -27,6 +27,7 @@ pub enum Cmd {
 #[derive(Debug, Args)]
 #[command(
     visible_alias("r"),
+    visible_alias("rec"),
     disable_colored_help(true),
     disable_version_flag(true)
 )]
