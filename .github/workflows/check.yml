@@ -96,7 +96,7 @@ jobs:
       #   uses: taiki-e/install-action@v2
       #   with:
       #     tool: cross
-      #
+
       - name: Setup | Install os deps
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -105,30 +105,9 @@ jobs:
 
       - name: Build | Build [Cargo]
         # if: matrix.os != 'ubuntu-latest'
-        run: cargo build --release --locked --target ${{ matrix.target }}
+        run: cargo build --locked --target ${{ matrix.target }}
 
       # - name: Build | Build [Cross]
       #   if: matrix.os == 'ubuntu-latest'
-      #   run: cross build --release --locked --target ${{ matrix.target }}
+      #   run: cross build --locked --target ${{ matrix.target }}
       #
-      - name: Post | Prepare artifacts
-        if: matrix.os != 'windows-latest'
-        run: |
-          RESULT="target-${{ matrix.target }}"
-          mkdir $RESULT
-          cp target/${{ matrix.target }}/release/mkrp $RESULT
-          tar czvf ${{ matrix.name }} $RESULT
-
-      - name: Post | Prepare artifacts
-        if: matrix.os == 'windows-latest'
-        run: |
-          set RESULT= target-${{ matrix.target }}
-          mkdir %RESULT%
-          cp target/${{ matrix.target }}/release/mkrp.exe %RESULT%
-          tar czvf ${{ matrix.name }} %RESULT%
-
-      - name: Post | Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}
-          path: ${{ matrix.name }}

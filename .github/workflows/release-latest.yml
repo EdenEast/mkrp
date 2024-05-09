@@ -11,39 +11,17 @@ on:
 
 jobs:
   tag:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    needs: [build]
     runs-on: ubuntu-latest
-    # needs: [fmt, clippy, build]
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v4
 
       - name: Setup | Download artifacts
-        uses: actions/github-script@v6
-        with:
-          script: |
-            let fs = require('fs')
-            let path = require('path')
-            let allArtifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              run_id: context.payload.workflow_run.id,
-            });
-            for (const artifact of allArtifacts.data.artifacts) {
-              let download = await github.rest.actions.downloadArtifact({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                artifact_id: artifact.id,
-                archive_format: 'zip',
-              });
-              let filepath = path.join('${{github.workspace}}', `${artifact.name}.zip`)
-              fs.writeFileSync(filepath, Buffer.from(download.data));
-              console.log(`Downloaded ${filepath}`)
-            }
+        uses: actions/download-artifact@v4
 
       - name: Build | Checksum
-        run: |
-          for file in mkrp-*; do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+        run: for file in mkrp-*/mkrp-*; do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
 
       - name: Build | Update latest tag
         run: |
@@ -60,5 +38,68 @@ jobs:
           tag_name: latest
           target_commitish: ${{ github.sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          files: mkrp-*
+          files: mkrp-*/mkrp-*
 
+  build:
+    if: |
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (
+          github.event.workflow_run.conclusion == 'success' &&
+          github.repository_owner == 'edeneast' &&
+          github.ref_name == 'main'
+        )
+      }}
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            name: mkrp-x86_64-linux-gnu.zip
+          # - target: aarch64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          #   name: mkrp-aarch64-linux-gnu.zip
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            name: mkrp-x86_64-apple-darwin.zip
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            name: mkrp-aarch64-apple-darwin.zip
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            name: mkrp-x86_64-windows.zip
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup | Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          targets: ${{matrix.target}}
+
+      - name: Setup | Install os deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get -y update
+          sudo apt-get install -y libx11-dev libxi-dev libxtst-dev
+
+      - name: Build | Build [Cargo]
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Post | Prepare artifacts
+        if: matrix.os != 'windows-latest'
+        run: |
+          zip -9j ${{matrix.name}} target/${{matrix.target}}/release/mkrp
+
+      - name: Post | Prepare artifacts
+        if: matrix.os == 'windows-latest'
+        run: |
+          powershell Compress-Archive target/${{matrix.target}}/release/mkrp.exe ${{matrix.name}}
+
+      - name: Post | Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.name }}
