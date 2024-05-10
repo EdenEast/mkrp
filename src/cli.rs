@@ -44,6 +44,19 @@ pub struct Record {
     #[arg(short, long)]
     pub stop_key: Option<String>,
 
+    /// Key to be used to pause recording
+    ///
+    /// The pause key can be any combination of keys that have to be either pressed or held down at
+    /// the same time. The key combination is a comma seperated list of keys.
+    ///
+    /// If no value is passed this is defaulted to `Insert` as the pause key.
+    #[arg(short, long)]
+    pub pause_key: Option<String>,
+
+    /// Reset mouse position back to when the recording was paused
+    #[arg(short, long)]
+    pub reset: bool,
+
     /// Output recorded events into path.
     #[arg(value_name = "PATH")]
     pub output: PathBuf,
@@ -71,6 +84,17 @@ pub struct Play {
     ///     Stop the playback with the key combo `Ctrl` + `F9` would be `ctrl,f9`.
     #[arg(short, long)]
     pub stop_key: Option<String>,
+
+    /// Key to be used to pause playback
+    ///
+    /// The pause key can be any combination of keys that have to be either pressed or held down at
+    /// the same time. The key combination is a comma seperated list of keys.  If no value is
+    /// passed this is defaulted to `Insert` as the stop key.
+    ///
+    /// Example:
+    ///     Pause the playback with the key combo `Ctrl` + `F9` would be `ctrl,f9`.
+    #[arg(short, long)]
+    pub pause_key: Option<String>,
 
     /// Delay between two iterations
     #[arg(short, long)]

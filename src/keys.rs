@@ -5,6 +5,16 @@ use std::{error::Error, str::FromStr, string::ParseError};
 pub struct KeyState(u128);
 
 impl KeyState {
+    pub fn parse_cli_str(s: &str) -> eyre::Result<Self> {
+        let mut state = KeyState::default();
+        for item in s.split(',') {
+            let key =
+                Key::from_str(item).ok_or(eyre::eyre!("Unknown key '{}' for stop key", item))?;
+            state.set_pressed(key);
+        }
+        Ok(state)
+    }
+
     pub fn with_pressed(keys: &[Key]) -> Self {
         let mut state = Self::default();
         for k in keys {

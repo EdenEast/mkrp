@@ -1,6 +1,14 @@
-use std::{fs::File, io::Write, str::FromStr, sync::mpsc::channel, thread, time::SystemTime};
+use std::{
+    fs::File,
+    io::Write,
+    path::is_separator,
+    str::FromStr,
+    sync::mpsc::channel,
+    thread,
+    time::{Duration, SystemTime},
+};
 
-use rdev::listen;
+use rdev::{listen, simulate};
 
 use crate::{
     cli::{Record, Run},
@@ -11,16 +19,13 @@ use crate::{
 impl Run for Record {
     fn run(self) -> eyre::Result<()> {
         let stop_state = match self.stop_key {
-            Some(s) => {
-                let mut state = KeyState::default();
-                for item in s.split(',') {
-                    let key = Key::from_str(item)
-                        .ok_or(eyre::eyre!("Unknown key '{}' for stop key", item))?;
-                    state.set_pressed(key);
-                }
-                state
-            }
+            Some(s) => KeyState::parse_cli_str(&s)?,
             None => KeyState::with_pressed(&[Key::Escape]),
+        };
+
+        let pause_state = match self.pause_key {
+            Some(p) => KeyState::parse_cli_str(&p)?,
+            None => KeyState::with_pressed(&[Key::Insert]),
         };
 
         // spawn new thread because listen blocks
@@ -37,6 +42,8 @@ impl Run for Record {
 
         let mut keystate = KeyState::default();
         let mut events = Vec::new();
+        let mut is_paused = false;
+        let mut last_mouse_position: Option<(f64, f64)> = None;
         for event in rx.iter() {
             match event.event_type {
                 rdev::EventType::KeyPress(rkey) => {
@@ -48,6 +55,42 @@ impl Run for Record {
                         keystate.set_pressed(key);
                         if keystate.is_state_held(stop_state) {
                             break;
+                        }
+
+                        if keystate.is_state_held(pause_state) {
+                            is_paused = !is_paused;
+                            if !is_paused {
+                                prev_system_time = event.time;
+
+                                // Reset mouse position if reset is set
+                                if self.reset {
+                                    if let Some(pos) = last_mouse_position {
+                                        simulate(&rdev::EventType::MouseMove {
+                                            x: pos.0,
+                                            y: pos.1,
+                                        })
+                                        .unwrap_or_else(
+                                            |_| {
+                                                panic!(
+                                                    "failed to move mouse back to position ({},{})",
+                                                    pos.0 as i32, pos.1 as i32
+                                                )
+                                            },
+                                        );
+                                    }
+                                    // Add small delay to make sure that os catchs up and applies
+                                    // the mouse update
+                                    spin_sleep::sleep(Duration::from_millis(50));
+                                }
+                                println!("Unpaused");
+                            } else {
+                                println!("Paused")
+                            }
+                            continue;
+                        }
+
+                        if is_paused {
+                            continue;
                         }
 
                         let duration = event
@@ -66,6 +109,11 @@ impl Run for Record {
                 rdev::EventType::KeyRelease(rkey) => {
                     let key: Key = rkey.into();
                     if keystate.is_pressed(key) {
+                        keystate.set_released(key);
+                        if is_paused {
+                            continue;
+                        }
+
                         let duration = event
                             .time
                             .duration_since(prev_system_time)
@@ -75,16 +123,21 @@ impl Run for Record {
                             delay: duration,
                             event: event.event_type,
                         });
-                        keystate.set_released(key);
+
                         prev_system_time = event.time;
                         println!("{:?} Released, Duration: {:?}", key, duration);
                     }
                 }
                 rdev::EventType::MouseMove { x, y } => {
+                    if is_paused {
+                        continue;
+                    }
+
                     let duration = event
                         .time
                         .duration_since(prev_system_time)
                         .expect("failed to get duration since last event");
+
                     if duration.as_millis() >= 1 {
                         events.push(Event {
                             delay: duration,
@@ -92,10 +145,15 @@ impl Run for Record {
                         });
 
                         prev_system_time = event.time;
+                        last_mouse_position = Some((x, y));
                         println!("Move ({},{}), Duration {:?}", x, y, duration);
                     }
                 }
                 e => {
+                    if is_paused {
+                        continue;
+                    }
+
                     let duration = event
                         .time
                         .duration_since(prev_system_time)

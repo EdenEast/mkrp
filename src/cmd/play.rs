@@ -1,6 +1,5 @@
 use std::{
     hint::spin_loop,
-    sync::mpsc::channel,
     thread,
     time::{Duration, Instant},
 };
@@ -27,16 +26,13 @@ impl Run for Play {
         let session = Session::from_file(self.output).unwrap();
 
         let stop_state = match self.stop_key {
-            Some(s) => {
-                let mut state = KeyState::default();
-                for item in s.split(',') {
-                    let key = Key::from_str(item)
-                        .ok_or(eyre::eyre!("Unknown key '{}' for stop key", item))?;
-                    state.set_pressed(key);
-                }
-                state
-            }
+            Some(s) => KeyState::parse_cli_str(&s)?,
             None => KeyState::with_pressed(&[Key::Escape]),
+        };
+
+        let pause_state = match self.pause_key {
+            Some(p) => KeyState::parse_cli_str(&p)?,
+            None => KeyState::with_pressed(&[Key::Insert]),
         };
 
         let total_iterations = self.iterations.unwrap_or(1);
@@ -55,6 +51,8 @@ impl Run for Play {
 
         // Terminate channel
         let (tt, rt) = unbounded();
+        // Pause channel
+        let (tp, rp) = unbounded();
         // Execution channel
         let (tx, rx) = unbounded();
 
@@ -70,6 +68,11 @@ impl Run for Play {
                         tt.send(true)
                             .unwrap_or_else(|_| println!("Could not send terminate event"));
                     }
+                    if keystate.is_state_held(pause_state) {
+                        println!("Pausing execution thread");
+                        tp.send(true)
+                            .unwrap_or_else(|_| println!("Could not send pause event"));
+                    }
                 }
                 EventType::KeyRelease(k) => {
                     keystate.set_released(k.into());
@@ -80,13 +83,22 @@ impl Run for Play {
         });
 
         let executor_rt = rt.clone();
+        let executor_rp = rp.clone();
         let executor = thread::spawn(move || {
             let rt = executor_rt;
+            let rp = executor_rp;
             'outer: for current_iteration in 0..total_iterations {
                 for (i, event) in session.events.iter().enumerate() {
                     if rt.try_recv().is_ok() {
                         break 'outer;
                     }
+
+                    if rp.try_recv().is_ok() {
+                        println!("Paused executor");
+                        rp.recv().expect("pause sender dropped");
+                        println!("Resumed executor");
+                    }
+
                     spin_sleep::sleep(event.delay);
                     simulate(&event.event)
                         .unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
@@ -143,6 +155,12 @@ impl Run for Play {
         loop {
             if rt.try_recv().is_ok() {
                 break;
+            }
+
+            if rp.try_recv().is_ok() {
+                println!("Paused ui");
+                rp.recv().expect("pause sender dropped");
+                println!("Resumed ui");
             }
 
             if let Ok(event) = rx.try_recv() {
