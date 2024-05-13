@@ -8,6 +8,7 @@ use std::{
 use crossbeam_channel::{bounded, select, tick, unbounded, Receiver};
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 use rdev::{listen, simulate, EventType};
+use tokio::sync::broadcast;
 
 use crate::{
     cli::{Play, Run},
@@ -24,7 +25,7 @@ enum UiEvent {
 }
 
 impl Run for Play {
-    fn run(self) -> eyre::Result<()> {
+    async fn run(self) -> eyre::Result<()> {
         let session = Session::from_file(self.output).unwrap();
 
         let stop_state = match self.stop_key {
@@ -55,7 +56,8 @@ impl Run for Play {
         let session_formatted_dutation = FormattedDuration(session.total_time);
 
         // Terminate channel
-        let (tt, rt) = unbounded();
+        let (tt, mut rt) = broadcast::channel(2);
+
         // Execution channel
         let (tx, rx) = unbounded();
 
@@ -68,8 +70,7 @@ impl Run for Play {
                     keystate.set_pressed(k.into());
                     if keystate.is_state_held(stop_state) {
                         println!("sending terminate state");
-                        tt.send(true)
-                            .unwrap_or_else(|_| println!("Could not send terminate event"));
+                        tt.send(true).expect("Could not send terminate event");
                     }
                 }
                 EventType::KeyRelease(k) => {
@@ -80,9 +81,9 @@ impl Run for Play {
             .expect("Could not listen");
         });
 
-        let executor_rt = rt.clone();
+        let mut executor_rt = tt.subscribe();
         let executor = thread::spawn(move || {
-            let rt = executor_rt;
+            let mut rt = executor_rt;
             let mut keys_state = KeyState::default();
             let mut mouse_state = MouseState::default();
             'outer: for current_iteration in 0..total_iterations {
@@ -161,7 +162,7 @@ impl Run for Play {
         let mut current_event = 1;
 
         // register ctrl-c handler
-        ctrlc::set_handler(move || tt.send(true).expect("Failed to send terminate signal"));
+        ctrlc::set_handler(move || _ = tt.send(true).expect("Failed to send terminate signal"));
 
         loop {
             if rt.try_recv().is_ok() {

@@ -9,7 +9,7 @@ use crate::{
 };
 
 impl Run for Record {
-    fn run(self) -> eyre::Result<()> {
+    async fn run(self) -> eyre::Result<()> {
         let stop_state = match self.stop_key {
             Some(s) => {
                 let mut state = KeyState::default();

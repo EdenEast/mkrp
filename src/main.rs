@@ -9,6 +9,7 @@ mod keys;
 mod mouse;
 mod session;
 
-fn main() -> eyre::Result<()> {
-    cmd::run(cli::Cli::parse())
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
+    cmd::run(cli::Cli::parse()).await
 }
