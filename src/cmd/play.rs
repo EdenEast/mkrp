@@ -12,6 +12,7 @@ use rdev::{listen, simulate, EventType};
 use crate::{
     cli::{Play, Run},
     keys::{Key, KeyState},
+    mouse::MouseState,
     session::Session,
 };
 
@@ -82,11 +83,22 @@ impl Run for Play {
         let executor_rt = rt.clone();
         let executor = thread::spawn(move || {
             let rt = executor_rt;
+            let mut keys_state = KeyState::default();
+            let mut mouse_state = MouseState::default();
             'outer: for current_iteration in 0..total_iterations {
                 for (i, event) in session.events.iter().enumerate() {
                     if rt.try_recv().is_ok() {
                         break 'outer;
                     }
+
+                    match event.event {
+                        EventType::KeyPress(k) => keys_state.set_pressed(k.into()),
+                        EventType::KeyRelease(k) => keys_state.set_released(k.into()),
+                        EventType::ButtonPress(b) => mouse_state.set_pressed(b.into()),
+                        EventType::ButtonPress(b) => mouse_state.set_released(b.into()),
+                        _ => {}
+                    }
+
                     spin_sleep::sleep(event.delay);
                     simulate(&event.event)
                         .unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
@@ -100,6 +112,17 @@ impl Run for Play {
 
                 tx.send(UiEvent::Iteration(current_iteration + 1))
                     .expect("failed to send iteration event to main ui thread");
+            }
+
+            // Checking the state of keys and mouse and unset anything that is recorded as pressed
+            for key in keys_state {
+                let event = EventType::KeyRelease(key.into());
+                simulate(&event).unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
+            }
+
+            for button in mouse_state {
+                let event = EventType::ButtonRelease(button.into());
+                simulate(&event).unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
             }
 
             tx.send(UiEvent::Completed)

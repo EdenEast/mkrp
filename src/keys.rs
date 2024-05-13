@@ -28,6 +28,10 @@ impl KeyState {
     pub fn is_state_held(&self, state: KeyState) -> bool {
         self.0 & state.0 == state.0
     }
+
+    pub fn iter(&self) -> KeyIterator {
+        KeyIterator::new(*self)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -544,6 +548,39 @@ impl From<rdev::Key> for Key {
     }
 }
 
+pub struct KeyIterator {
+    value: u128,
+}
+
+impl KeyIterator {
+    pub fn new(value: KeyState) -> Self {
+        Self { value: value.0 }
+    }
+}
+
+impl Iterator for KeyIterator {
+    type Item = Key;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.value == 0 {
+            return None;
+        }
+
+        let index = self.value.trailing_zeros() as u8;
+        self.value &= !(1 << index);
+        Some(index.into())
+    }
+}
+
+impl IntoIterator for KeyState {
+    type Item = Key;
+    type IntoIter = KeyIterator;
+
+    fn into_iter(self) -> Self::IntoIter {
+        KeyIterator::new(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -573,5 +610,19 @@ mod tests {
         assert_eq!(Key::from_str("shift"), Some(Key::LShift));
         assert_eq!(Key::from_str("alt"), Some(Key::LAlt));
         assert_eq!(Key::from_str("super"), Some(Key::LSuper));
+    }
+
+    #[test]
+    fn iterate_over_keys_in_state() {
+        use Key::*;
+        let initial = &[A, D, G, J, L, M, R, Y];
+        let expected = &[A, D, J, M, R, Y];
+        let mut state = KeyState::with_pressed(initial);
+
+        state.set_released(G);
+        state.set_released(L);
+        for (index, key) in state.iter().enumerate() {
+            assert_eq!(expected[index], key);
+        }
     }
 }
