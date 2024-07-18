@@ -163,8 +163,10 @@ impl Run for Play {
         // register ctrl-c handler
         ctrlc::set_handler(move || tt.send(true).expect("Failed to send terminate signal"));
 
+        let mut finished_successfull = true;
         loop {
             if rt.try_recv().is_ok() {
+                finished_successfull = false;
                 break;
             }
 
@@ -217,7 +219,9 @@ impl Run for Play {
         spb.finish_and_clear();
         mp.clear();
 
-        println!("bye");
+        if !finished_successfull {
+            std::process::exit(1);
+        }
 
         Ok(())
     }
