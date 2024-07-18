@@ -79,4 +79,8 @@ pub struct Play {
     /// Input file to be played
     #[arg(value_name = "PATH")]
     pub output: PathBuf,
+
+    /// Blend mouse with the current mouse position for duration in ms
+    #[arg(short, long)]
+    pub blend: Option<u64>,
 }

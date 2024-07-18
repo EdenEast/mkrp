@@ -6,6 +6,7 @@ use std::{
 };
 
 use crossbeam_channel::{bounded, select, tick, unbounded, Receiver};
+use device_query::{device_state, DeviceQuery};
 use indicatif::{FormattedDuration, MultiProgress, ProgressBar, ProgressStyle};
 use rdev::{listen, simulate, EventType};
 
@@ -54,6 +55,10 @@ impl Run for Play {
         let session_duration = session.total_time;
         let session_formatted_dutation = FormattedDuration(session.total_time);
 
+        let initial_start_instant = Instant::now();
+        let initial_blend_value = self.blend.map(|b| Duration::from_millis(b));
+        let mut blend = initial_blend_value;
+
         // Terminate channel
         let (tt, rt) = unbounded();
         // Execution channel
@@ -83,6 +88,7 @@ impl Run for Play {
         let executor_rt = rt.clone();
         let executor = thread::spawn(move || {
             let rt = executor_rt;
+            let mut device = device_state::DeviceState::new();
             let mut keys_state = KeyState::default();
             let mut mouse_state = MouseState::default();
             'outer: for current_iteration in 0..total_iterations {
@@ -100,8 +106,37 @@ impl Run for Play {
                     }
 
                     spin_sleep::sleep(event.delay);
-                    simulate(&event.event)
-                        .unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
+
+                    if let Some(duration) = blend {
+                        match event.event {
+                            EventType::MouseMove { x, y } => {
+                                let duration_since_start = Instant::now() - initial_start_instant;
+                                let new_duration = duration.saturating_sub(duration_since_start);
+
+                                let factor = if duration_since_start < duration {
+                                    duration_since_start.as_secs_f64() / duration.as_secs_f64()
+                                } else {
+                                    blend = None;
+                                    0.0
+                                };
+
+                                // get current mouse position
+                                let coords = device.get_mouse().coords;
+                                let (mx, my) = (coords.0 as f64, coords.1 as f64);
+                                let dx = mx + (x - mx) * factor;
+                                let dy = my + (y - my) * factor;
+                                let event = EventType::MouseMove { x: dx, y: dy };
+
+                                simulate(&event)
+                                    .unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
+                            }
+                            _ => (),
+                        }
+                    } else {
+                        simulate(&event.event)
+                            .unwrap_or_else(|_| panic!("failed to simulate {:#?}", event));
+                    }
+
                     tx.send(UiEvent::Event(i as u32 + 1))
                         .expect("failed to send event iteration to main ui thread");
                 }
